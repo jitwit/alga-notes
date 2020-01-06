@@ -174,4 +174,31 @@ insertComponent v = modify'
       in C pre scc' bnd' pth' pres sccs' gs' es_i' es_o)
 #+END_SRC
 
+** Gabow with edge classification
 
+ The messier version, including edge classification:
+
+#+BEGIN_SRC haskell
+gabowSCC :: AdjacencyIntMap -> State StateSCC ()
+gabowSCC g =
+  do let adjacent = IntSet.toList . flip postIntSet g -- avoid list possible?
+         dfs u = do p_u <- enter u -- grab current time for edge classification
+                    forM_ (adjacent u) $ \v -> -- for (u,v):
+                      preorderId v >>= \case
+                        Nothing  -> do -- v not visited
+                          updated <- dfs v
+                          if updated -- if v formed new SCC
+                            then outedge (u,v) -- (u,v) outside edge
+                            else inedge (p_u,(u,v)) -- else (u,v) inside edge
+                        Just p_v -> do -- v visited:
+                          scc_v <- hasComponent v
+                          if scc_v -- if v already assigned component
+                            then outedge (u,v) -- then (u,v) outside
+                            -- else update boundary and put edge (u,v) in edge path stack analogue 
+                            -- where some inside edges go in next found scc, but possibly not all
+                            else popBoundary p_v >> inedge (p_v,(u,v))
+                    exit u -- check to see if u forms new component
+     forM_ (vertexList g) $ \v -> do
+       assigned <- hasPreorderId v
+       unless assigned $ void $ dfs v
+#+END_SRC

@@ -1,0 +1,61 @@
+
+* Gabow's Algorithm for Strongly Connected Components
+
+** Overview
+
+ Two stacks of vertices are maintained during the dfs traversal of
+ the graph, the so-called /path stack/ and the /boundary stack/. As
+ the traversal evolves, tables associating vertices to entry times
+ (or preorder numbers) and strongly connected components are
+ built. Like many graph algorithms, the path-based scc can be
+ characterized by what to do when entering, following adjacent, and
+ exiting.
+
+*** Enter
+
+ Vertices are visited once. When they are visited, their enter time
+ (or preorder id) is put into the enter time table. Therefore, a
+ vertex is visited if and only if it has an entry in the table.
+
+ Besides tracking time, vertices are pushed onto the path and
+ boundary stacks upon visit.
+
+*** Adjacent
+
+ Let ~u~ be the most recently visited vertex. For each edge ~(u,v)~,
+ the status of ~v~ in the search determines what to do next. 
+ - ~v~ is not visited, its search tree is traversed before ~u~'s
+   (depth first, after all).
+ - ~v~ has been visited but has been assigned to a ~SCC~. There's
+   nothing to do besides note that the ~u,v~ determines an edge
+   between components ~scc[u],scc[v]~ in the condensation.
+ - ~v~ has been visited but has not been assigned to a ~SCC~. This
+   situation is possible when some ancestor of ~w~ in the tree has an
+   edge ~(w,v)~ or if ~v~ is an ancestor of ~u~. In former case, ~w~
+   was necessarily the first vertex of ~u,v,w~ to be entered. ~w~ may
+   not be in the same component as ~u~ and ~v~, but ~u~ and ~v~ must
+   be in the same component, as we have a path ~(u,v)~ and ~v~ would
+   have been exited if there wasn't some path ~v~ ... ~u~. In the
+   latter case, ~(u,v)~ would complete some cycle between them and
+   they are in the same component. Since ~v~ was visited first, its
+   entry time is smaller than ~u~'s. Vertices with later time than
+   ~time[v]~ are popped from the boundary stack.
+
+*** Exit
+ 
+ After exploring ~u~'s search tree, inspecting the boundary stack
+ determines if ~u~ closes off a new SCC. The key invariant is that
+ ~u~ is at the top of the boundary stack if and only if none of its
+ children pointed to a vertex with a lower entry time. ~u~ would have
+ been popped from it in case three in the adjacent section by some
+ descendent. 
+
+ If no new scc is completed, there's nothing to do. ~u~ is still a
+ member of /some/ SCC and one of its ancestors will complete the
+ current component. Otherwise, a new SCC has been completed and the
+ path stack is finally relevant. ~u~ is the first vertex in this new
+ component that was traversed. It and its descendents are all in the
+ path stack and the descendents were pushed after it. All vertices
+ currently in the path stack up to and including ~u~ form this
+ completed SCC. They are all popped, given the same component ID, and
+ the component ID counter is incremented. 

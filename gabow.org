@@ -59,3 +59,119 @@
  currently in the path stack up to and including ~u~ form this
  completed SCC. They are all popped, given the same component ID, and
  the component ID counter is incremented. 
+
+** Edge classification
+  
+ Since the ultimate goal is to calculate the condensation graph, at
+ some point it is necessary to determine which edges are between SCCs
+ and which are inside them. As entry times were used to classify the
+ SCCs, they can also be used to help classify the edges.
+ 
+ The key is that given edge ~(u,v)~, traversal from ~v~ is completed
+ before traversal from ~u~. Unless ~v~ completes a SCC, ~u,v~ belong
+ to the same one, since ~v~ doesn't complete a SCC precisely when one
+ of its descendents points to a vertex with a lower enter time than
+ it's own.
+
+ An edge ~(u,v)~ can be classified during the adjacent step above:
+ - ~v~ unvisited. Traversal continues from ~v~. ~u~ and ~v~ are in
+   different components if and only if traversal from ~v~ completes a
+   new SCC. Basically, if ~v~ was at the top of the boundary stack,
+   none of its descendents pointed to an ancestor of ~u~. Edge
+   ~(scc[u],scc[v])~ is between components. If one did, say ~w~, then
+   there is some path from ~v...w~ and ~w...u~ and ~(u,v)~ is then an
+   inner edge of the condensation.
+ - ~v~ visited and assigned to some SCC. ~(scc[u],scc[v])~ is an outer
+   edge.
+ - ~v~ visited but not assigned to some SCC. ~(u,v)~ is an inner edge.
+
+** Haskell Implementation
+
+*** Simplified version
+
+  ~StateSCC~ is some horrible data type with too many fields. It holds
+  the counters for time/preorder id and component id, the boundary
+  stack and the path stack, and the time/preorder table and the SCC id
+  table.
+
+  This version is simplified in that it ignores edge classification.
+
+#+BEGIN_SRC haskell
+gabowSCC :: Ord a => AdjacencyMap a -> State (StateSCC a) ()
+gabowSCC g =
+  do let dfs u = do enter u -- give u preorder id and put on stacks
+                    forM_ (adjacent u) $ \v -> do -- for v in out edges
+                      preorderId v >>= \case
+                        Nothing  -> dfs v -- if v not seen, dfs v
+                        Just p_v -> do
+                          scc_v <- hasComponent v -- if v has not been assigned, adjust stacks
+                          unless scc_v $ popBoundary p_v -- put reachable vertex with lowest preorder id on top
+                    exit u -- maybe discover a new scc, maybe not.
+     forM_ (vertexList g) $ \v -> do -- usual dfs of graph
+       assigned <- hasPreorderId v
+       unless assigned $ dfs v  -- vertex traversed iff it has(no)PreorderId
+#+END_SRC
+
+**** enter
+  
+  Note: ~pre~ is returned for use in classifying edges. if ~preorderId
+  v~ is ~Nothing~ when considering edge ~(u,v)~, ~pre~ can tag the
+  edge for later classfication.
+
+#+BEGIN_SRC haskell
+enter v = do C pre scc bnd pth pres sccs gs es_i es_o <- get
+             let !pre' = pre+1 -- new enter time counter
+                 !bnd' = (pre,v):bnd -- push to boundary stack
+                 !pth' = v:pth -- push to path stack
+                 !pres' = Map.insert v pre pres -- update preorder/time table
+             put $! C pre' scc bnd' pth' pres' sccs gs es_i es_o
+             return pre 
+#+END_SRC
+
+**** popBoundary
+
+  ~popBoundary~ called considering edges ~(u,v)~. Whenever ~v~ is
+  visited, its enter time is lower than ~u~'s and vertices with time
+  greater than ~p_v~ can't complete a new component.
+
+#+BEGIN_SRC haskell
+popBoundary p_v = modify'
+  (\(C pre scc bnd pth pres sccs gs es_i es_o) ->
+     C pre scc (dropWhile ((>p_v).fst) bnd) pth pres sccs gs es_i es_o)
+#+END_SRC
+
+
+**** exit
+
+  The messiest case. This includes updating inner edges, outer edges,
+  vertices of condensation graph, path stack, scc id counter.
+
+#+BEGIN_SRC haskell
+exit v = do newComponent <- (v==).snd.head <$> gets boundary
+            when newComponent $ insertComponent v
+            return newComponent
+
+insertComponent v = modify'
+  (\(C pre -- enter time/preorder counter
+       scc -- scc id counter
+       bnd -- boundary stack
+       pth -- path stack
+       pres -- enter time table
+       sccs -- scc table
+       gs -- vertices of condensation, indexed by scc id
+       es_i -- inner edge stack, popped section to be put in gs table 
+       es_o -- outer edges. to be used after traversal to condense graph
+       ) ->
+     let gs' = IntMap.insert scc g_i gs -- insert subgraph in condensation table
+         sccs' = List.foldl' (\sccs x -> Map.insert x scc sccs) sccs curr -- give vertices up to v in path stack a new SCC id
+         scc' = scc + 1 -- new SCC id
+         bnd' = tail bnd -- pop boundary stack
+         p_v = fst $ head bnd -- lowest time/preorder id in new scc is top of stack
+         g_i = fromList (vertex <$> curr) <> fromList (uncurry edge.snd <$> es) -- new subgraph/condensation vertex
+         (es,es_i') = span ((>=p_v).fst) es_i -- split inide edges based on preorder id
+         pth' = tail $ dropWhile (/=v) pth -- pop vertices in completed component up to and including v
+         curr = v:takeWhile(/=v) pth -- these vertices form the newly completed SCC
+      in C pre scc' bnd' pth' pres sccs' gs' es_i' es_o)
+#+END_SRC
+
+

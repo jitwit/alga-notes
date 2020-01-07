@@ -3,84 +3,76 @@
 
 ** Overview
 
- Two stacks of vertices are maintained during the dfs traversal of
- the graph, the so-called /path stack/ and the /boundary stack/. As
- the traversal evolves, tables associating vertices to entry times
- (or preorder numbers) and strongly connected components are
- built. Like many graph algorithms, the path-based scc can be
- characterized by what to do when entering, following adjacent, and
- exiting.
+ The goal is to take a graph and compute its condensation. Gabow's
+ path-based SCC algorithm computes strongly connected components by
+ doing a preorder traversal of the graph, maintaining two stacks of
+ vertices. The boundary stack is used to find representative vertices
+ of components. The path stack is used to keep track of which vertices
+ belong to these components.
+
+ Like many graph algorithms, the path-based approach can be
+ characterized by what to do when entering a vertex, following
+ adjacent edges, and exiting. To compute the condensation, we also
+ want to classify the edges in the process.
+
+** Details
+
+ The core idea is that edges that point from vertices with higher
+ preorder ids to lower preorder ids induce cycles. The boundary stack
+ is popped until the vertex with the lowest reachable preorder id is
+ on top. On exiting a vertex, if it is at the top of the boundary
+ stack, it is a representative of a strongly connected component
+ containing the vertices in the path stack up to it.
 
 *** Enter
 
- Vertices are visited once. When they are visited, their enter time
- (or preorder id) is put into the enter time table. Therefore, a
- vertex is visited if and only if it has an entry in the table.
-
- Besides tracking time, vertices are pushed onto the path and
- boundary stacks upon visit.
+ When a vertex is traversed, it is given a preorder id (entry time). A
+ vertex has been visited iff it has been given a preorder id. It is
+ also pushed to both the boundary and path stacks.
 
 *** Adjacent
 
- Let ~u~ be the most recently visited vertex. For each edge ~(u,v)~,
- the status of ~v~ in the search determines what to do next. 
+ Let ~u~ be the current vertex. For each edge ~(u,v)~, the status of
+ ~v~ determines what to do next.
  - ~v~ is not visited, its search tree is traversed before ~u~'s
    (depth first, after all).
  - ~v~ has been visited but has been assigned to a ~SCC~. There's
    nothing to do besides note that the ~u,v~ determines an edge
    between components ~scc[u],scc[v]~ in the condensation.
  - ~v~ has been visited but has not been assigned to a ~SCC~. This
-   situation is possible when some ancestor of ~w~ in the tree has an
-   edge ~(w,v)~ or if ~v~ is an ancestor of ~u~. In former case, ~w~
-   was necessarily the first vertex of ~u,v,w~ to be entered. ~w~ may
-   not be in the same component as ~u~ and ~v~, but ~u~ and ~v~ must
-   be in the same component, as we have a path ~(u,v)~ and ~v~ would
-   have been exited if there wasn't some path ~v~ ... ~u~. In the
-   latter case, ~(u,v)~ would complete some cycle between them and
-   they are in the same component. Since ~v~ was visited first, its
-   entry time is smaller than ~u~'s. Vertices with later time than
-   ~time[v]~ are popped from the boundary stack.
+   situation induces some cycle containing ~u~ and ~v~, and the
+   boundary stack is updated to reflect this (any vertex with preorder
+   id ~>pre[v]~ is dropped.
 
 *** Exit
  
  After exploring ~u~'s search tree, inspecting the boundary stack
- determines if ~u~ closes off a new SCC. The key invariant is that
- ~u~ is at the top of the boundary stack if and only if none of its
- children pointed to a vertex with a lower entry time. ~u~ would have
- been popped from it in case three in the adjacent section by some
- descendent. 
+ determines if ~u~ completes a new SCC. The key is that ~u~ is at the
+ top of the boundary stack if and only if none of its children pointed
+ to a vertex with a lower preorder id. ~u~ would have been popped from
+ the boundary stack otherwise.
 
  If no new scc is completed, there's nothing to do. ~u~ is still a
- member of /some/ SCC and one of its ancestors will complete the
- current component. Otherwise, a new SCC has been completed and the
- path stack is finally relevant. ~u~ is the first vertex in this new
- component that was traversed. It and its descendents are all in the
- path stack and the descendents were pushed after it. All vertices
- currently in the path stack up to and including ~u~ form this
- completed SCC. They are all popped, given the same component ID, and
- the component ID counter is incremented. 
+ member of some SCC that will be represented by one of its
+ ancestors.
+
+ When ~u~ is found to represent a SCC all vertices in the path stack
+ up to ~u~ belong to it and are dropped from it. Assign them to the
+ current SCC id.
 
 ** Edge classification
-  
- Since the ultimate goal is to calculate the condensation graph, at
- some point it is necessary to determine which edges are between SCCs
- and which are inside them. As entry times were used to classify the
- SCCs, they can also be used to help classify the edges.
- 
- The key is that given edge ~(u,v)~, traversal from ~v~ is completed
- before traversal from ~u~. Unless ~v~ completes a SCC, ~u,v~ belong
- to the same one, since ~v~ doesn't complete a SCC precisely when one
- of its descendents points to a vertex with a lower enter time than
- it's own.
 
- An edge ~(u,v)~ can be classified during the adjacent step above:
+ The search can be augmented by including a stack of edges analogous
+ to the path stack. On exiting a vertex ~u~ which represents a SCC,
+ inner edges from this stack are in the newly found component/vertex
+ of the condensation when their minimum preorder id is greater or
+ equal to that of ~u~. The rest belong to another component.
+ 
+ Edge ~(u,v)~ can be classified during the adjacent step above:
  - ~v~ unvisited. Traversal continues from ~v~. ~u~ and ~v~ are in
    different components if and only if traversal from ~v~ completes a
-   new SCC. Basically, if ~v~ was at the top of the boundary stack,
-   none of its descendents pointed to an ancestor of ~u~. Edge
-   ~(scc[u],scc[v])~ is between components. If one did, say ~w~, then
-   there is some path from ~v...w~ and ~w...u~ and ~(u,v)~ is then an
-   inner edge of the condensation.
+   new SCC. Basically, ~v~ was at the top of the boundary stack iff
+   none of its descendents pointed to an ancestor of it.
  - ~v~ visited and assigned to some SCC. ~(scc[u],scc[v])~ is an outer
    edge.
  - ~v~ visited but not assigned to some SCC. ~(u,v)~ is an inner edge.
@@ -89,17 +81,12 @@
 
 *** Simplified version
 
-  ~StateSCC~ is some horrible data type with too many fields. It holds
-  the counters for time/preorder id and component id, the boundary
-  stack and the path stack, and the time/preorder table and the SCC id
-  table.
-
   This version is simplified in that it ignores edge classification.
 
 #+BEGIN_SRC haskell
 gabowSCC :: Ord a => AdjacencyMap a -> State (StateSCC a) ()
 gabowSCC g =
-  do let dfs u = do enter u -- give u preorder id and put on stacks
+  do let dfs u = do enter u -- give u preorder id and push to stacks
                     forM_ (adjacent u) $ \v -> do -- for v in out edges
                       preorderId v >>= \case
                         Nothing  -> dfs v -- if v not seen, dfs v
@@ -116,7 +103,7 @@ gabowSCC g =
   
   Note: ~pre~ is returned for use in classifying edges. if ~preorderId
   v~ is ~Nothing~ when considering edge ~(u,v)~, ~pre~ can tag the
-  edge for later classfication.
+  edge for later classfication from the edge path stack.
 
 #+BEGIN_SRC haskell
 enter v = do C pre scc bnd pth pres sccs gs es_i es_o <- get
@@ -130,9 +117,8 @@ enter v = do C pre scc bnd pth pres sccs gs es_i es_o <- get
 
 **** popBoundary
 
-  ~popBoundary~ called considering edges ~(u,v)~. Whenever ~v~ is
-  visited, its enter time is lower than ~u~'s and vertices with time
-  greater than ~p_v~ can't complete a new component.
+  ~popBoundary~ can be called when considering edges ~(u,v)~. vertices
+  with preorder id ~>p_v~ can't represent the enclosing component.
 
 #+BEGIN_SRC haskell
 popBoundary p_v = modify'
@@ -143,8 +129,8 @@ popBoundary p_v = modify'
 
 **** exit
 
-  The messiest case. This includes updating inner edges, outer edges,
-  vertices of condensation graph, path stack, scc id counter.
+  When a new compoent is found, this updates inner edges, outer edges,
+  vertices of condensation graph, path stacks, scc id counter.
 
 #+BEGIN_SRC haskell
 exit v = do newComponent <- (v==).snd.head <$> gets boundary
@@ -152,14 +138,14 @@ exit v = do newComponent <- (v==).snd.head <$> gets boundary
             return newComponent
 
 insertComponent v = modify'
-  (\(C pre -- enter time/preorder counter
+  (\(C pre -- preorder id/entry time counter
        scc -- scc id counter
        bnd -- boundary stack
        pth -- path stack
-       pres -- enter time table
-       sccs -- scc table
+       pres -- preorder table
+       sccs -- scc id table
        gs -- vertices of condensation, indexed by scc id
-       es_i -- inner edge stack, popped section to be put in gs table 
+       es_i -- inner edge path stack, popped section to be put in gs table 
        es_o -- outer edges. to be used after traversal to condense graph
        ) ->
      let gs' = IntMap.insert scc g_i gs -- insert subgraph in condensation table
@@ -176,7 +162,7 @@ insertComponent v = modify'
 
 ** Gabow with edge classification
 
- The messier version, including edge classification:
+ The full/messy version, including edge classification:
 
 #+BEGIN_SRC haskell
 gabowSCC :: AdjacencyIntMap -> State StateSCC ()

@@ -36,7 +36,7 @@ data StateSCC a
       , inner_graphs  :: (IntMap.IntMap (List (AdjacencyMap a)))
       , inner_edges   :: ![(Int,(a,a))]
       , outer_edges   :: [(a,a)]
-      } deriving (Show)
+      } deriving (Show,Eq)
 
 gabow :: (MonadWriter [StateSCC a] m, MonadState (StateSCC a) m, Ord a) => AdjacencyMap a -> m ()
 gabow g =

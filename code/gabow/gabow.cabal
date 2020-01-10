@@ -11,6 +11,6 @@ executable gabow
   exposed-modules:     Gabow.hs
   -- other-modules:
   -- other-extensions:
-  build-depends:       base, algebraic-graphs, diagrams, containers, diagrams-svg, diagrams-lib, mtl
+  build-depends:       base, algebraic-graphs, diagrams, containers, diagrams-svg, diagrams-lib, mtl, diagrams-rasterific
   -- hs-source-dirs:
   default-language:    Haskell2010

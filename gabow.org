@@ -188,3 +188,17 @@ gabowSCC g =
        assigned <- hasPreorderId v
        unless assigned $ void $ dfs v
 #+END_SRC
+
+
+** Example
+
+ Let ~G=3*1*4*1*5~ be an example graph. Let P be path stack, B
+ boundary stack, E edge stack. The traversal evolves as such:
+   1. 1 given pre-id 0, ~P=[1]~, ~B=[1]~, ~E=[]~. consider out edges to 4,5.
+   2. 4 not visited, ~P=[1]~, ~B=[1]~, ~E=[]~.
+   3. 4 given pre-id 1, ~P=[4,1]~, ~B=[4,1]~, ~E=[]~.
+   4. 5 given pre-id 2, ~P=[5,4,1]~, ~B=[5,4,1]~, ~E=[]~.
+   5. exit 5. It's at top of ~B~. Assign ~[5]~ to scc 0. ~P=[4,1]~ ~B=[4,1]~, ~E=[]~.
+   6. 
+
+

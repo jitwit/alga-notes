@@ -41,7 +41,7 @@ data StateSCC a
 gabow :: (MonadWriter [StateSCC a] m, MonadState (StateSCC a) m, Ord a) => AdjacencyMap a -> m ()
 gabow g =
   do let dfs u = do p_u <- enter u
-                    setForEach_ (postSet u g) $ \v -> do
+                    forEach (postSet u g) $ \v -> do
                       preorderId v >>= \case
                         Nothing  -> do
                           updated <- dfs v
@@ -108,14 +108,3 @@ gabow g =
     hasPreorderId v = gets (Map.member v . preorders)
     preorderId    v = gets (Map.lookup v . preorders)
     hasComponent  v = gets (Map.member v . components)
-
-condense :: Ord a => AdjacencyMap a -> StateSCC a -> AdjacencyMap (AdjacencyMap a)
-condense g (C _ n _ _ _ assignment inner _ outer)
-  | n == 1 = vertex g
-  | otherwise = gmap (inner' IntMap.!) outer'
-  where inner' = overlays . toList <$> inner
-        outer' = overlays $ es ++ vs
-        vs = vertex <$> [0..n-1]
-        es = [ edge (sccid x) (sccid y) | (x,y) <- outer ]
-        sccid v = assignment Map.! v
-

@@ -15,42 +15,47 @@
  adjacent edges, and exiting. To compute the condensation, we also
  want to classify the edges in the process.
 
+** Example
+
+ The following image traces a run of the algorithm on the graph
+ ~3*1*4*1*5~.  Key: For vertices, gray means unvisited, red means
+ visited, and blue means assigned to a scc. The text is the vertex,
+ the preorder id, and the assigned component id. Edges are colored
+ black once they have been found to be edges in the condensation.
+
 #+caption: Example
 [[https://raw.githubusercontent.com/jitwit/alga-notes/master/images/gabow.png][3*1*4*1*5]]
-
- Image key: For vertices gray means unvisited, red means visited, blue
- means assigned to a scc. The text is the vertex, it's preorder id,
- and it's component id. Edges are black once they have been found to
- be edges in the condensation.
 
 ** Details
 
  The core idea is that edges that point from vertices with higher
- preorder ids to lower preorder ids induce cycles. The boundary stack
- is popped until the vertex with the lowest reachable preorder id is
- on top. On exiting a vertex, if it is at the top of the boundary
- stack, it is a representative of a strongly connected component
- containing the vertices in the path stack up to it.
+ preorder times to lower preorder times can induce cycles. The
+ boundary stack is popped until the vertex not yet assigned to a
+ component with the lowest reachable preorder id is on
+ top. Representative vertices are discovered by looking at the
+ boundary stack at exit. If the vertex being exited is found to also
+ be at the top of the boundary stack, it represents the strongly
+ connected component containing all the path stack up to itself.
 
 *** Enter
 
  When a vertex is traversed, it is given a preorder id (entry time). A
- vertex has been visited iff it has been given a preorder id. It is
- also pushed to both the boundary and path stacks.
+ vertex has been visited iff it has been given a preorder id. Vertices
+ are pushed to both the boundary and path stacks on entry.
 
 *** Adjacent
 
  Let ~u~ be the current vertex. For each edge ~(u,v)~, the status of
  ~v~ determines what to do next.
- - ~v~ is not visited, its search tree is traversed before ~u~'s
+ - ~v~ is not visited. ~v~'s search tree is traversed before ~u~'s
    (depth first, after all).
- - ~v~ has been visited but has been assigned to a ~SCC~. There's
-   nothing to do besides note that the ~u,v~ determines an edge
-   between components ~scc[u],scc[v]~ in the condensation.
+ - ~v~ is visited but has been assigned to a ~SCC~. There's nothing to
+   do besides note that the ~u,v~ determines an edge between
+   components ~scc[u],scc[v]~ in the condensation.
  - ~v~ has been visited but has not been assigned to a ~SCC~. This
    situation induces some cycle containing ~u~ and ~v~, and the
    boundary stack is updated to reflect this (any vertex with preorder
-   id ~>pre[v]~ is dropped.
+   id ~>pre[v]~ is popped.
 
 *** Exit
  
@@ -60,23 +65,24 @@
  to a vertex with a lower preorder id. ~u~ would have been popped from
  the boundary stack otherwise.
 
+ When ~u~ is found to represent a SCC all vertices in the path stack
+ up to ~u~ belong to it and are dropped from it. They are assigned to
+ the current SCC id.
+
  If no new scc is completed, there's nothing to do. ~u~ is still a
  member of some SCC that will be represented by one of its
- ancestors.
-
- When ~u~ is found to represent a SCC all vertices in the path stack
- up to ~u~ belong to it and are dropped from it. Assign them to the
- current SCC id.
+ ancestors and ~u~ is still in the path stack.
 
 ** Edge classification
 
  The search can be augmented by including a stack of edges analogous
- to the path stack. On exiting a vertex ~u~ which represents a SCC,
+ to the path stack. On exiting a vertex ~u~ which represents some SCC,
  inner edges from this stack are in the newly found component/vertex
  of the condensation when their minimum preorder id is greater or
  equal to that of ~u~. The rest belong to another component.
  
- Edge ~(u,v)~ can be classified during the adjacent step above:
+ In other words, edge ~(u,v)~ can be classified during the adjacent
+ step like above:
  - ~v~ unvisited. Traversal continues from ~v~. ~u~ and ~v~ are in
    different components if and only if traversal from ~v~ completes a
    new SCC. Basically, ~v~ was at the top of the boundary stack iff

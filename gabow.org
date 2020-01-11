@@ -18,6 +18,11 @@
 #+caption: Example
 [[https://raw.githubusercontent.com/jitwit/alga-notes/master/images/gabow.png][3*1*4*1*5]]
 
+ Image key: For vertices gray means unvisited, red means visited, blue
+ means assigned to a scc. The text is the vertex, it's preorder id,
+ and it's component id. Edges are black once they have been found to
+ be edges in the condensation.
+
 ** Details
 
  The core idea is that edges that point from vertices with higher

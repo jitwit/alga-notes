@@ -1,0 +1,88 @@
+
+* Flattening a breadth first search forest
+
+The depth and breadth first traversal functions in alga for adjacency
+maps return haskell ~Forest~ data types. ~Data.Tree~ exports two
+appropriate functions for flattening these trees, ~flatten~
+(pre-order) and ~levels~ (level-order). There is a slight complication
+getting the breadth first flattening right.
+
+#+BEGIN_SRC haskell :session :exports code
+import Data.Tree
+import Data.List
+import Algebra.Graph.AdjacencyMap.Algorithm hiding (transpose)
+
+put'forest = putStrLn . drawForest . map (fmap show)
+g :: AdjacencyMap Int
+g = (circuit [1..5] + circuit [5,4..1]) + (6*7)
+#+END_SRC
+
+Our example graph is a doubly linked list containing the nodes
+~[1..5]~ plus an edge ~6,7~. The depth first case is simple in that
+~concatMap flatten . dfsForest~ gives what we want.
+
+#+BEGIN_SRC haskell :exports code
+> put'forest $ dfsForestFrom [1,6] g
+1
+|
+`- 2
+   |
+   `- 3
+      |
+      `- 4
+         |
+         `- 5
+
+6
+|
+`- 7
+
+> concatMap flatten $ dfsForestFrom [1,6] g
+[1,2,3,4,5,6,7]
+#+END_SRC
+
+The issue is that ~concatMap levels~ /almost/ gives what we want. The
+flattened result from ~bfs~ should have the property that vertices at
+index ~d~ are distance ~d~ from the argument vertices. Yet,
+
+#+BEGIN_SRC haskell :exports code
+> put'forest $ bfsForest [1,6] g
+1
+|
++- 2
+|  |
+|  `- 3
+|
+`- 5
+   |
+   `- 4
+
+6
+|
+`- 7
+
+> concatMap levels $ bfsForest [1,6] g
+[[1],[2,5],[3,4],[6],[7]]
+#+END_SRC
+
+is no good. Though vertex ~6~ was depth ~0~ from the argument
+vertices, it appears at index ~3~ in the result.
+
+The remedy is to do a slight twist before ~concat~'ing
+level-wise. Only using ~map~ shows that for each tree, ~levels~ indeed
+does what we want. Equal distance levels can be brought together by
+first ~transpose~'ing. Then once the levels are aligned, they may be
+~concat~'ed.
+
+#+BEGIN_SRC haskell :exports code
+> map levels $ bfsForest [1,6] g
+[[[1],[2,5],[3,4]],[[6],[7]]]
+
+> List.transpose $ map levels $ bfsForest [1,6] g
+[[[1],[6]],[[2,5],[7]],[[3,4]]]
+
+> map concat $ List.transpose $ map levels $ bfsForest [1,6] g
+[[1,6],[2,5,7],[3,4]]
+#+END_SRC
+
+Voilà!

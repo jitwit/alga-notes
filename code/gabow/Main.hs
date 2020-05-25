@@ -25,16 +25,16 @@ data EdgeView a
 --   | E'inside (a,a)
   | E'outside (a,a)
 
-viewVertex :: Ord a => a -> StateSCC a -> VertexView a
-viewVertex v st = case Map.lookup v (preorders st) of
+view'vertex :: Ord a => a -> StateSCC a -> VertexView a
+view'vertex v st = case Map.lookup v (preorders st) of
   Nothing -> V'unknown v
   Just p -> case Map.lookup v (components st) of
     Nothing -> V'entered v p
     Just s -> V'assigned v p s
 
-viewEdge :: Ord a => (a,a) -> StateSCC a -> EdgeView a
-viewEdge e st | e `elem` outer_edges st = E'outside e
-              | otherwise = E'unknown e
+view'edge :: Ord a => (a,a) -> StateSCC a -> EdgeView a
+view'edge e st | e `elem` outer_edges st = E'outside e
+               | otherwise = E'unknown e
 
 draw'vertex :: (IsName a, Show a) => VertexView a -> Diagram B
 draw'vertex = \case
@@ -46,6 +46,21 @@ draw'vertex = \case
                     <> circ' v # fc blue
   where font' = fc white # fontSize 6
         circ' v = circle 0.4 # named v # lw thin
+
+diag'key :: Diagram B
+diag'key =
+  let unvis = text "not visited" # fc white # fontSize 6 <>
+        circle 0.37 # lw thin # fc gray # scaleX 1.6
+      enter = text "entered" # fc white # fontSize 6 <>
+        circle 0.37 # lw thin # fc red # scaleX 1.6
+      exit = text "exited" # fc white # fontSize 6 <>
+        circle 0.37 # lw thin # fc blue # scaleX 1.6
+      inedge = text "inner edge" # fontSize 7 # fc green # bold
+      outedge = text "outer edge" # fontSize 7 # fc black # bold
+      vert = text "v, pre, comp" # fontSize 7
+   in translate (V2 1 1.2) $ hcat' (with & sep.~ 1)
+      [ vcat' (with & sep .~ 0.1) [unvis,enter,exit]
+      , vcat' (with & sep .~ 0.6) [vert,inedge,outedge] ]
 
 -- style'edge :: EdgeView a -> ArrowOpts
 style'edge = \case
@@ -63,8 +78,8 @@ pi'slice st =
   let zs = p2 <$> [(-1,0),(0,1),(0,-1),(1,0)]
       vs = [3,1,4,5]
       es = edgeList piG
-      vsD = [ draw'vertex (viewVertex v st) | v <- vs ]
-      connE e@(u,v) d = connectOutside' (style'edge $ viewEdge e st) u v d
+      vsD = [ draw'vertex (view'vertex v st) | v <- vs ]
+      connE e@(u,v) d = connectOutside' (style'edge $ view'edge e st) u v d
       pthD = text ("path stack: " <> show (dfsPath st)) # fontSize 9
       bndD = text ("boundary stack: " <> show (map snd $ boundary st)) # fontSize 9
       stackD = translate (V2 0 0.7) $ vcat' (with & sep .~ 0.5) [pthD,bndD]
@@ -77,10 +92,12 @@ sections n = unfoldr spl where
     (ys,zs) -> Just (ys,zs)
 
 pi'diagram :: [StateSCC Int] -> Diagram B
-pi'diagram = vcat' (with & sep .~ 2) . map (hcat' (with & sep .~ 2)) . sections 4 . map pi'slice
+pi'diagram =
+  vcat' (with & sep .~ 2) .
+  map (hcat' (with & sep .~ 2)) .
+  sections 4 . (++[diag'key]). map pi'slice
 
 main :: IO ()
 main = do
-  let f = id
-  mapM_ (print . f) $ traceGabow piG
+  mapM_ print $ traceGabow piG
   renderSVG "gabow.svg" (mkSizeSpec (Just <$> V2 800 450)) (pi'diagram slices)

@@ -43,7 +43,7 @@ Our example graph is a doubly linked list containing the nodes
 
 The issue is that ~concatMap levels~ /almost/ gives what we want. The
 flattened result from ~bfs~ should have the property that vertices at
-index ~d~ are distance ~d~ from the argument vertices. Yet,
+index ~d~ are distance ~d~ from the argument vertices. Yet
 
 #+BEGIN_SRC haskell :exports code
 > put'forest $ bfsForest [1,6] g
@@ -68,11 +68,14 @@ index ~d~ are distance ~d~ from the argument vertices. Yet,
 is no good. Though vertex ~6~ was depth ~0~ from the argument
 vertices, it appears at index ~3~ in the result.
 
-The remedy is to do a slight twist before ~concat~'ing
-level-wise. Only using ~map~ shows that for each tree, ~levels~ indeed
-does what we want. Equal distance levels can be brought together by
-first ~transpose~'ing. Then once the levels are aligned, they may be
-~concat~'ed.
+Only using ~map~ shows that for each tree, ~levels~ indeed does what
+we want. The remedy is to do a slight twist before ~concat~'ing
+level-wise. Equal distance levels can be brought together by first
+~transpose~'ing. Basically ~map levels . bfsForest vs~ produces a
+triple list of vertices, where the most significant axis (J language
+speak) delimits the trees of the forest, the second most significant
+axis the levels. ~transpose~ shifts which axis is most significant and
+once the levels are aligned, they may be ~concat~'ed.
 
 #+BEGIN_SRC haskell :exports code
 > map levels $ bfsForest [1,6] g

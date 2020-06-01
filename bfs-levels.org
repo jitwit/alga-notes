@@ -1,4 +1,6 @@
 
+See [[http://j-raphael.net/posts/breadth-first-alga.html][breadth-first-alga]]
+
 * Flattening a breadth first search forest
 
 The depth and breadth first traversal functions in alga for adjacency

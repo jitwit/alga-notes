@@ -1,4 +1,6 @@
 
+Moved to [[http://j-raphael.net/posts/scc-gabow-style.html][scc-gabow]]
+
 * Gabow's Algorithm for Strongly Connected Components
 
 ** Overview
